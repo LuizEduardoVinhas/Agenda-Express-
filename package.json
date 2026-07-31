@@ -1,0 +1,38 @@
+{
+  "name": "projetoexpress",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "dev:webpack": "webpack --mode development --watch",
+    "start": "nodemon server.js --mode production"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "connect-flash": "^0.1.1",
+    "connect-mongo": "^6.0.0",
+    "core-js": "^3.49.0",
+    "csurf": "^1.11.0",
+    "dotenv": "^17.4.2",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
+    "mongoose": "^9.9.0",
+    "regenerator-runtime": "^0.14.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "8.0.4",
+    "@babel/core": "^8.0.1",
+    "@babel/preset-env": "^8.0.2",
+    "babel-loader": "^10.1.1",
+    "css-loader": "^7.1.4",
+    "nodemon": "^3.1.14",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.109.2",
+    "webpack-cli": "^7.2.2"
+  }
+}
