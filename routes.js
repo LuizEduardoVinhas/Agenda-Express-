@@ -5,12 +5,14 @@ const loginController = require('./src/controllers/loginController');
 const contatoController = require('./src/controllers/contatoController');
 const { loginRequired } = require('./src/middlewares/middlewaresGlobal');
 
-
 // rotas home
-route.get('/index', homeController.index);
+route.get('/', homeController.index);
 
 // rotas login
-route.get('/index/login', loginController.index)
+route.get('/login/index', loginController.index)
+route.post('/login/register', loginController.register)
+route.post('/login/login', loginController.login)
+route.get('/login/logout', loginController.logout)
 
 // rotas de contato
 route.get('/index/contato', loginRequired, contatoController.index);
