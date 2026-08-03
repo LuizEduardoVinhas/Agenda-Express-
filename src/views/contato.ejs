@@ -8,10 +8,15 @@
         <div class="col-lg-8 my-3">
           <h1 class="display-1 text-center"> Contatos </h1>
           <p class="text-center lead"> Crie ou edite seus contatos </p>
-        </div>
-        <%- include('include/messages')%>
-          <form action="/contato/contato" method="post">
-            <input type="hidden" name="_crsf" value=<%=csrfToken%>>
+
+          <%- include('include/message')%>
+
+          <% if(contato._id) { %>
+            <form action="/index/contato/<%= contato._id %>" method="post">
+          <% } else { %>
+            <form action="/index/contato" method="post">
+          <% } %>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
             <div class="form-group">
               <label>Seu nome:</label>
@@ -35,7 +40,9 @@
             <button type="submit" class="btn btn-primary">Salvar</button>
             <button type="reset" class="btn btn-primary">Apagar dados</button>
           </form>
-          <div class="col-lg-2"></div>
+        </div>
+
+        <div class="col-lg-2"></div>
       </div>
     </div>
     <%- include('include/footer')%>
