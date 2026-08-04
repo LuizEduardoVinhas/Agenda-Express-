@@ -1,0 +1,136 @@
+# Agenda de Contatos - ProjetoExpress
+
+Projeto Node.js com Express e MongoDB (Mongoose), implementando CRUD de contatos com autenticacao por sessao, protecao CSRF, mensagens flash e validacao de dados.
+
+## Estrutura de pastas
+
+```
+ProjetoExpress/
+├── server.js
+├── routes.js
+├── .env
+├── src/
+│   ├── controllers/
+│   │   ├── homeController.js
+│   │   ├── loginController.js
+│   │   └── contatoController.js
+│   ├── models/
+│   │   └── ContatoModel.js
+│   ├── middlewares/
+│   │   └── middlewaresGlobal.js
+│   └── views/
+│       ├── contato.ejs
+│       ├── index.ejs
+│       └── include/
+│           ├── head.ejs
+│           ├── nav.ejs
+│           ├── message.ejs
+│           └── footer.ejs
+└── public/
+```
+
+## server.js
+
+Carrega variaveis de ambiente do arquivo `.env` com `dotenv`, incluindo a string de conexao do MongoDB.
+
+Conecta ao MongoDB com `mongoose.connect`. O servidor so comeca a escutar requisicoes depois que a conexao e confirmada (evento `pronto`), evitando subir a aplicacao sem banco disponivel.
+
+Configura sessao com `express-session`, armazenando os dados no MongoDB via `connect-mongo` (em vez de memoria, que se perde ao reiniciar o servidor). `connect-flash` permite guardar mensagens temporarias que sobrevivem a um unico redirect.
+
+`helmet()` adiciona cabecalhos HTTP de seguranca, incluindo Content Security Policy (CSP), que restringe de onde scripts e estilos podem ser carregados.
+
+Ordem dos middlewares antes das rotas:
+1. `express.urlencoded` - interpreta dados de formularios (`req.body`)
+2. `csrf()` - ativa protecao contra CSRF
+3. `express.static` - serve arquivos estaticos da pasta `public`
+4. `middlewareGlobal` - injeta variaveis globais nas views
+5. `checkCsrfError` - captura erros de token CSRF invalido
+6. `csrfMiddleware` - disponibiliza o token CSRF atual
+7. `routes` - processamento das rotas
+
+## routes.js
+
+```javascript
+route.get('/index/contato', loginRequired, contatoController.index);
+route.post('/index/contato', loginRequired, contatoController.registerContato);
+route.get('/index/contato/delete/:id', loginRequired, contatoController.delete);
+route.get('/index/contato/:id', loginRequired, contatoController.editindex);
+route.post('/index/contato/:id', loginRequired, contatoController.edit);
+```
+
+O Express avalia rotas de cima para baixo e usa a primeira que bater. Rotas com segmentos fixos (`/delete/:id`) precisam vir antes de rotas com parametros dinamicos na mesma posicao (`/:id`), senao o segmento fixo e interpretado como valor do parametro.
+
+`loginRequired` e passado como middleware de rota, entre a URL e o controller final, bloqueando o acesso quando nao ha usuario logado na sessao.
+
+## ContatoModel.js
+
+Contem dois objetos distintos:
+
+**Schema/Model do Mongoose** - define o formato dos dados no banco e fornece metodos como `.create()`, `.findById()`, `.findByIdAndUpdate()`, `.findByIdAndDelete()`.
+
+**Funcao construtora `Contato`** - classe propria (padrao `function` + `prototype`) que recebe os dados do formulario (`body`) e acumula erros de validacao (`errors`) antes de qualquer gravacao no banco.
+
+```javascript
+function Contato(body) {
+    this.body = body;
+    this.errors = [];
+    this.contato = null;
+}
+```
+
+`Contato.prototype.register` valida os dados primeiro; se houver erro, interrompe antes de salvar no banco.
+
+`Contato.prototype.cleanUp` converte campos que nao sao string em string vazia, e reconstroi `this.body` contendo apenas os campos esperados, descartando qualquer campo extra enviado pelo formulario.
+
+`Contato.buscarPorid` e `Contato.delete` sao metodos estaticos (adicionados direto na funcao, nao no `prototype`), chamados sem precisar instanciar a classe.
+
+Para deletar por ID, usar `ContatoModel.findByIdAndDelete(id)`. `findOneAndDelete(id)` espera um objeto de filtro, nao uma string, e retorna `null` quando usado incorretamente.
+
+## contatoController.js
+
+```javascript
+const contatoModel = require('../models/ContatoModel');
+```
+
+O nome da variavel e apenas um apelido local - o que e importado de fato e a funcao construtora `Contato`, exportada no model com `module.exports = Contato`.
+
+Em `registerContato` e `edit`, e necessario usar `return` apos o primeiro redirect condicional (erro de validacao). Sem o `return`, o codigo continua executando e tenta acessar `contato.contato._id`, que seria `null`, quebrando a aplicacao.
+
+Em `delete`, usar sempre uma URL explicita no redirect (`/index/contato`). `res.redirect('back')` nao funciona no Express 5 - deixou de apontar para o cabecalho `Referer` e passa a ser tratado como URL relativa literal, gerando URLs invalidas.
+
+## middlewaresGlobal.js
+
+`middlewareGlobal` injeta `errors`, `success` e `user` em `res.locals`, disponibilizando essas variaveis para todas as views sem precisar passar manualmente em cada `res.render`.
+
+`req.flash('chave')` le e apaga a mensagem da sessao ao mesmo tempo. Requisicoes automaticas do navegador (como `favicon.ico`) passando por esse middleware antes da pagina de destino podem consumir a mensagem antes da hora.
+
+`checkCsrfError` tem assinatura de 4 parametros (`err, req, res, next`), o que o Express reconhece como middleware de tratamento de erro - captura qualquer erro lancado em middlewares ou rotas anteriores, nao apenas erros de CSRF. O `console.log(err)` dentro dele e a forma de identificar a causa real quando a pagina 404 aparece sem motivo aparente.
+
+`loginRequired` verifica `req.session.user` e bloqueia o acesso a rotas protegidas quando nao ha usuario logado.
+
+## Views (EJS)
+
+`message.ejs` le as variaveis `errors` e `success` de `res.locals`, injetadas pelo `middlewareGlobal`.
+
+`contato.ejs` usa o mesmo formulario para criar e editar: se `contato._id` existir, o `action` aponta para a rota de edicao; senao, para a rota de criacao.
+
+O campo CSRF do formulario precisa ter `name="_csrf"` exatamente. Qualquer variacao (como `_crsf`) faz o `csurf` rejeitar a requisicao com `ForbiddenError: invalid csrf token`.
+
+`index.ejs` verifica se `contatos.length === 0` para mostrar a mensagem de lista vazia ou a tabela de contatos.
+
+## Bugs encontrados e correcoes
+
+| Bug | Causa | Correcao |
+|---|---|---|
+| `argument handler must be a function` | Rota apontando para metodo `undefined` do controller | Corrigir nome do metodo/import |
+| `ReferenceError: contatoController is not defined` | Faltou `require` no topo do arquivo | Adicionar o `require` correto |
+| `Cannot find module` | Caminho relativo errado no `require` | Ajustar caminho conforme estrutura de pastas |
+| Formulario cai em "Cannot GET/POST" | `action` do form nao bate com rota registrada | Alinhar `action` do HTML com `routes.js` |
+| Erros de validacao sempre levam ao 404 | Faltava `return` apos redirect condicional | Adicionar `return` para interromper a funcao |
+| Mensagem de sucesso nunca aparece | Inconsistencia entre `success` e `sucess` | Padronizar a grafia em todos os arquivos |
+| `ForbiddenError: invalid csrf token` | Campo do formulario com nome errado (`_crsf`) | Corrigir para `_csrf` |
+| Delete sempre cai no 404 | `findOneAndDelete(id)` recebendo string em vez de filtro | Usar `findByIdAndDelete(id)` |
+| `CastError: Cast to ObjectId failed for value "back"` | `res.redirect('back')` nao existe no Express 5 | Redirecionar para URL explicita |
+| Rota de delete nunca e alcancada | Rota generica `:id` definida antes da rota `/delete/:id` | Reordenar rotas: especificas antes das dinamicas |
+| Tabela de contatos nao aparece | Condicao `if(contatos.length === 0)` sem `else`, logica invertida | Adicionar `else` com a logica correta |
+| CSP bloqueando scripts de CDN | Politica padrao do `helmet()` restritiva | Configurar `contentSecurityPolicy` liberando os dominios |
