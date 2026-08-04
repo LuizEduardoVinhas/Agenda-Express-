@@ -32,13 +32,13 @@ app.use(sessionOptions)
 app.use(flash())
 
 app.use(helmet())
-app.use(csrf())
 
 const routes = require('./routes');
 const path = require('path')
 const { middlewareGlobal,checkCsrfError,csrfMiddleware } = require('./src/middlewares/middlewaresGlobal')
 
 app.use(express.urlencoded({ extended: true }));
+app.use(csrf())
 app.use(express.static(path.resolve(__dirname, 'public')));
 app.use(middlewareGlobal);
 app.use(checkCsrfError);

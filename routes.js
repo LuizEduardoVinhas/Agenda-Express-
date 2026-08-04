@@ -2,12 +2,24 @@ const express = require('express');
 const route = express.Router();
 const homeController = require('./src/controllers/homeController');
 const loginController = require('./src/controllers/loginController');
-
+const contatoController = require('./src/controllers/contatoController');
+const { loginRequired } = require('./src/middlewares/middlewaresGlobal');
 
 // rotas home
-route.get('/index', homeController.index);
+route.get('/', homeController.index);
 
 // rotas login
-route.get('/index/login', loginController.index)
+route.get('/login/index', loginController.index)
+route.post('/login/register', loginController.register)
+route.post('/login/login', loginController.login)
+route.get('/login/logout', loginController.logout)
 
-module.exports = route;
+// rotas de contato
+route.get('/index/contato', loginRequired, contatoController.index);
+route.get('/index/contato', loginRequired, contatoController.editindex);
+route.get('/index/contato/delete/:id', loginRequired, contatoController.delete);
+route.post('/index/contato', loginRequired, contatoController.registerContato);
+route.get('/index/contato/:id', loginRequired, contatoController.editindex);
+route.post('/index/contato/:id', loginRequired, contatoController.edit);
+
+module.exports = route; 
